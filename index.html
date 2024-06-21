@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Throw AI in the Volcano!</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            background-color: #87CEEB;
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #game-container {
+            background-color: #4CAF50;
+            width: 320px;
+            height: 240px;
+            position: relative;
+            overflow: hidden;
+        }
+        #character, #volcano, .ai-icon {
+            position: absolute;
+        }
+        #character {
+            width: 32px;
+            height: 32px;
+            bottom: 20px;
+            left: 20px;
+            z-index: 2;
+        }
+        #volcano {
+            width: 64px;
+            height: 64px;
+            bottom: 0;
+            right: 20px;
+            z-index: 1;
+        }
+        .ai-icon {
+            width: 16px;
+            height: 16px;
+            z-index: 3;
+        }
+        #score, #time {
+            color: #FFF;
+            position: absolute;
+            font-size: 12px;
+            z-index: 4;
+        }
+        #score { top: 10px; left: 10px; }
+        #time { top: 10px; right: 10px; }
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #FFF;
+            z-index: 5;
+        }
+        #start-button, #restart-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', cursive;
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score">Score: 0</div>
+        <div id="time">Time: 60</div>
+        <svg id="character" viewBox="0 0 32 32">
+            <rect x="12" y="8" width="8" height="16" fill="#FF0000"/>
+            <rect x="12" y="4" width="8" height="8" fill="#FFA07A"/>
+            <rect x="14" y="6" width="2" height="2" fill="#000000"/>
+            <rect x="18" y="6" width="2" height="2" fill="#000000"/>
+            <rect x="12" y="24" width="4" height="8" fill="#0000FF"/>
+            <rect x="16" y="24" width="4" height="8" fill="#0000FF"/>
+            <rect x="8" y="12" width="4" height="4" fill="#FFA07A"/>
+            <rect x="20" y="12" width="4" height="4" fill="#FFA07A"/>
+        </svg>
+        <svg id="volcano" viewBox="0 0 64 64">
+            <polygon points="0,64 64,64 32,0" fill="#8B4513"/>
+            <polygon points="24,32 40,32 32,8" fill="#FF4500"/>
+        </svg>
+        <div id="start-screen">
+            <h1>AI Volcano Tosser</h1>
+            <button id="start-button">Start Game</button>
+        </div>
+        <div id="game-over-screen" style="display:none;">
+            <h1>Game Over</h1>
+            <p id="final-score"></p>
+            <button id="restart-button">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const character = document.getElementById('character');
+        const volcano = document.getElementById('volcano');
+        const scoreElement = document.getElementById('score');
+        const timeElement = document.getElementById('time');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const finalScoreElement = document.getElementById('final-score');
+
+        let score = 0;
+        let timeLeft = 60;
+        let gameInterval;
+        let aiIcons = [];
+        const aiTypes = [
+            {name: 'chatgpt', color: '#00FF00', icon: createChatGPTIcon},
+            {name: 'claude', color: '#0000FF', icon: createClaudeIcon},
+            {name: 'bard', color: '#FF0000', icon: createBardIcon}
+        ];
+
+        function createChatGPTIcon(svg) {
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", "8");
+            circle.setAttribute("cy", "8");
+            circle.setAttribute("r", "7");
+            circle.setAttribute("fill", "#00FF00");
+            circle.setAttribute("stroke", "#FFFFFF");
+            circle.setAttribute("stroke-width", "2");
+            svg.appendChild(circle);
+        }
+
+        function createClaudeIcon(svg) {
+            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.setAttribute("x", "2");
+            rect.setAttribute("y", "2");
+            rect.setAttribute("width", "12");
+            rect.setAttribute("height", "12");
+            rect.setAttribute("fill", "#0000FF");
+            rect.setAttribute("stroke", "#FFFFFF");
+            rect.setAttribute("stroke-width", "2");
+            svg.appendChild(rect);
+        }
+
+        function createBardIcon(svg) {
+            const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            polygon.setAttribute("points", "8,2 14,14 2,14");
+            polygon.setAttribute("fill", "#FF0000");
+            polygon.setAttribute("stroke", "#FFFFFF");
+            polygon.setAttribute("stroke-width", "2");
+            svg.appendChild(polygon);
+        }
+
+        function startGame() {
+            score = 0;
+            timeLeft = 60;
+            scoreElement.textContent = `Score: ${score}`;
+            timeElement.textContent = `Time: ${timeLeft}`;
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+
+            gameInterval = setInterval(() => {
+                timeLeft--;
+                timeElement.textContent = `Time: ${timeLeft}`;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(gameInterval);
+            finalScoreElement.textContent = `Final Score: ${score}`;
+            gameOverScreen.style.display = 'flex';
+            aiIcons.forEach(icon => icon.remove());
+            aiIcons = [];
+        }
+
+        function throwAI() {
+            const aiIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            aiIcon.setAttribute("viewBox", "0 0 16 16");
+            aiIcon.classList.add('ai-icon');
+            const aiType = aiTypes[Math.floor(Math.random() * aiTypes.length)];
+            
+            aiType.icon(aiIcon);
+
+            aiIcon.style.left = '52px';
+            aiIcon.style.bottom = '52px';
+            document.getElementById('game-container').appendChild(aiIcon);
+            aiIcons.push(aiIcon);
+
+            let position = 52;
+            const interval = setInterval(() => {
+                position += 5;
+                aiIcon.style.left = `${position}px`;
+                aiIcon.style.bottom = `${-0.005 * (position - 52) ** 2 + 52}px`;
+
+                if (position >= 280) {
+                    clearInterval(interval);
+                    aiIcon.remove();
+                    aiIcons = aiIcons.filter(icon => icon !== aiIcon);
+                    score++;
+                    scoreElement.textContent = `Score: ${score}`;
+                    playSound('splash');
+                }
+            }, 50);
+
+            character.style.transform = 'rotate(45deg)';
+            setTimeout(() => {
+                character.style.transform = 'rotate(0deg)';
+            }, 100);
+
+            playSound('throw');
+        }
+
+        function playSound(sound) {
+            console.log(`Playing ${sound} sound`);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ' && timeLeft > 0) {
+                throwAI();
+            }
+        });
+
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+    </script>
+</body>
+</html>
